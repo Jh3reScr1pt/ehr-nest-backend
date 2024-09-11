@@ -1,0 +1,64 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Personal {
+  id               Int      @id @default(autoincrement())
+  first_name       String
+  second_name      String?
+  first_last_name  String
+  second_last_name String
+  phone_number     String?
+  email            String   @unique
+  password         String?  @unique
+  isActive           Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  roleId Int
+  role   Roles @relation(fields: [roleId], references: [id])
+
+  specialties DoctorSpecialties[]
+}
+
+model Specialties {
+  id                    Int      @id @default(autoincrement())
+  specialty_name        String   @unique
+  specialty_description String?
+  isActive                 Boolean  @default(true)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  doctors DoctorSpecialties[]
+}
+
+model Roles {
+  id               Int      @id @default(autoincrement())
+  role_name        String   @unique
+  role_description String?
+  isActive            Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  personals Personal[]
+}
+
+model DoctorSpecialties {
+  id          Int      @id @default(autoincrement())
+  personalId  Int
+  specialtyId Int
+  assignedAt  DateTime @default(now())
+
+  personal  Personal    @relation(fields: [personalId], references: [id])
+  specialty Specialties @relation(fields: [specialtyId], references: [id])
+
+  @@unique([personalId, specialtyId])
+}
