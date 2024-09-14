@@ -1,26 +1,142 @@
-import { Injectable } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { CreatePersonalDto } from './dto/create-personal.dto';
 import { UpdatePersonalDto } from './dto/update-personal.dto';
+import { PrismaService } from 'src/prisma/prisma.service';
+import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 
 @Injectable()
 export class PersonalService {
-  create(createPersonalDto: CreatePersonalDto) {
-    return 'This action adds a new personal';
+  constructor(private prismaService: PrismaService) {}
+  async create(createPersonalDto: CreatePersonalDto) {
+    // Verificar si el roleId existe
+    const roleExists = await this.prismaService.roles.findUnique({
+      where: { id: createPersonalDto.roleId },
+    });
+
+    // Si no existe, lanzar NotFoundException
+    if (!roleExists) {
+      throw new NotFoundException(
+        `Role with id -> ${createPersonalDto.roleId} not found`,
+      );
+    }
+
+    try {
+      await this.prismaService.personal.create({ data: createPersonalDto });
+      return { message: 'Personal created successfully' };
+    } catch (error) {
+      if (error instanceof PrismaClientKnownRequestError) {
+        throw new ConflictException(
+          `Personal with email -> ${createPersonalDto.email} already exists`,
+        );
+      }
+      // Lanza otros errores no esperados
+      throw error;
+    }
   }
 
   findAll() {
-    return `This action returns all personal`;
+    return this.prismaService.personal.findMany();
   }
 
-  findOne(id: number) {
-    return `This action returns a #${id} personal`;
+  async findOne(id: number) {
+    const personalFound = await this.prismaService.personal.findUnique({
+      where: { id: id },
+    });
+    if (!personalFound) {
+      throw new NotFoundException(`Personal with id -> ${id}, not found`);
+    }
+    return personalFound;
   }
 
-  update(id: number, updatePersonalDto: UpdatePersonalDto) {
-    return `This action updates a #${id} personal`;
+  async activePersonal() {
+    const activePersonal = await this.prismaService.personal.findMany({
+      where: { isActive: true },
+    });
+
+    if (activePersonal.length === 0) {
+      throw new NotFoundException('No active personal found');
+    }
+
+    return activePersonal;
   }
 
-  remove(id: number) {
-    return `This action removes a #${id} personal`;
+  async inactivePersonal() {
+    const inactivePersonal = await this.prismaService.personal.findMany({
+      where: { isActive: false },
+    });
+
+    if (inactivePersonal.length === 0) {
+      throw new NotFoundException('No inactive personal found');
+    }
+
+    return inactivePersonal;
+  }
+
+  async update(id: number, updatePersonalDto: UpdatePersonalDto) {
+    try {
+      await this.prismaService.personal.update({
+        where: { id },
+        data: updatePersonalDto,
+      });
+      return { message: 'Personal updated successfully' };
+    } catch (error) {
+      // Verifica el tipo de error lanzado por Prisma
+      if (error.code === 'P2025') {
+        // Código de error específico para "Record to update not found"
+        throw new NotFoundException(`Personal with id -> ${id}, not found`);
+      }
+      // Lanza otros errores no esperados
+      throw error;
+    }
+  }
+
+  async updateIsActive(id: number) {
+    const personalFound = await this.prismaService.personal.findUnique({
+      where: { id },
+    });
+
+    if (!personalFound) {
+      throw new NotFoundException(`Personal with id "${id}" not found`);
+    }
+
+    // Cambia el estado a su valor opuesto
+    const newState = !personalFound.isActive;
+
+    // Actualiza el rol con el nuevo estado
+    await this.prismaService.personal.update({
+      where: { id },
+      data: { isActive: newState },
+    });
+
+    // Devuelve un mensaje según el nuevo estado
+    const message = newState
+      ? `Personal has been activated successfully`
+      : `Personal has been deactivated successfully`;
+
+    return { message };
+  }
+
+  async remove(id: number) {
+    const personalFound = await this.prismaService.personal.findUnique({
+      where: { id },
+    });
+
+    if (!personalFound) {
+      throw new NotFoundException(`Personal with id "${id}" not found`);
+    }
+
+    if (personalFound.isActive) {
+      throw new ConflictException('Personal cannot be deleted while active');
+    }
+
+    await this.prismaService.personal.delete({
+      where: { id },
+    });
+
+    return { message: `Personal with id "${id}" deleted successfully` };
   }
 }

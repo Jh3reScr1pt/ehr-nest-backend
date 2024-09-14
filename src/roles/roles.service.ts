@@ -6,7 +6,7 @@ import {
 import { CreateRoleDto } from './dto/create-role.dto';
 import { UpdateRoleDto } from './dto/update-role.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { Prisma } from '@prisma/client';
+import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 
 @Injectable()
 export class RolesService {
@@ -17,7 +17,7 @@ export class RolesService {
       await this.prismaService.roles.create({ data: createRoleDto });
       return { message: 'Role  created successfully' };
     } catch (error) {
-      if (error instanceof Prisma.PrismaClientKnownRequestError) {
+      if (error instanceof PrismaClientKnownRequestError) {
         throw new ConflictException(
           `Role with name -> ${createRoleDto.role_name} already exists`,
         );

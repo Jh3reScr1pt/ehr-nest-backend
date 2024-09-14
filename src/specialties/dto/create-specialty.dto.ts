@@ -1,1 +1,6 @@
-export class CreateSpecialtyDto {}
+import { Specialties } from '@prisma/client';
+
+export type CreateSpecialtyDto = Omit<
+  Specialties,
+  'id' | 'createdAt' | 'updatedAt'
+>;
