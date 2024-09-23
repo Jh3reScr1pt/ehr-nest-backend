@@ -1,5 +1,7 @@
 import {
+  BadRequestException,
   ConflictException,
+  HttpStatus,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -11,10 +13,20 @@ import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 @Injectable()
 export class SpecialtiesService {
   constructor(private prismaService: PrismaService) {}
+
   async create(createSpecialtyDto: CreateSpecialtyDto) {
+    if (
+      !createSpecialtyDto.specialty_name ||
+      createSpecialtyDto.specialty_name.trim() === ''
+    ) {
+      throw new BadRequestException('specialty_name cannot be empty');
+    }
     try {
       await this.prismaService.specialties.create({ data: createSpecialtyDto });
-      return { message: 'Specialty  created successfully' };
+      return {
+        statusCode: HttpStatus.CREATED,
+        message: 'Specialty  created successfully',
+      };
     } catch (error) {
       if (error instanceof PrismaClientKnownRequestError) {
         throw new ConflictException(
@@ -68,7 +80,10 @@ export class SpecialtiesService {
         where: { id },
         data: updateSpecialtyDto,
       });
-      return { message: 'Specialty updated successfully' };
+      return {
+        statusCode: HttpStatus.OK,
+        message: 'Specialty updated successfully',
+      };
     } catch (error) {
       // Verifica el tipo de error lanzado por Prisma
       if (error.code === 'P2025') {
@@ -103,7 +118,7 @@ export class SpecialtiesService {
       ? `Specialty has been activated successfully`
       : `Specialty has been deactivated successfully`;
 
-    return { message };
+    return { statusCode: HttpStatus.OK, message };
   }
 
   async remove(id: number) {
@@ -123,6 +138,9 @@ export class SpecialtiesService {
       where: { id },
     });
 
-    return { message: `Specialty with id "${id}" deleted successfully` };
+    return {
+      statusCode: HttpStatus.NO_CONTENT,
+      message: `Specialty with id "${id}" deleted successfully`,
+    };
   }
 }

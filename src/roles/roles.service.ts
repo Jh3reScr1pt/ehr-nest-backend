@@ -1,5 +1,7 @@
 import {
+  BadRequestException,
   ConflictException,
+  HttpStatus,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -13,9 +15,16 @@ export class RolesService {
   constructor(private prismaService: PrismaService) {}
 
   async create(createRoleDto: CreateRoleDto) {
+    // Verifica que el campo role_name no esté vacío
+    if (!createRoleDto.role_name || createRoleDto.role_name.trim() === '') {
+      throw new BadRequestException('role_name cannot be empty');
+    }
     try {
       await this.prismaService.roles.create({ data: createRoleDto });
-      return { message: 'Role  created successfully' };
+      return {
+        statusCode: HttpStatus.CREATED,
+        message: 'Role created successfully',
+      };
     } catch (error) {
       if (error instanceof PrismaClientKnownRequestError) {
         throw new ConflictException(
@@ -64,19 +73,21 @@ export class RolesService {
   }
 
   async update(id: number, updateRoleDto: UpdateRoleDto) {
+    // Verifica que el campo role_name no esté vacío
+
     try {
       await this.prismaService.roles.update({
         where: { id },
         data: updateRoleDto,
       });
-      return { message: 'Role updated successfully' };
+      return {
+        statusCode: HttpStatus.OK,
+        message: 'Role updated successfully',
+      };
     } catch (error) {
-      // Verifica el tipo de error lanzado por Prisma
       if (error.code === 'P2025') {
-        // Código de error específico para "Record to update not found"
         throw new NotFoundException(`Role with id -> ${id}, not found`);
       }
-      // Lanza otros errores no esperados
       throw error;
     }
   }
@@ -90,21 +101,21 @@ export class RolesService {
       throw new NotFoundException(`Role with id "${id}" not found`);
     }
 
-    // Cambia el estado a su valor opuesto
     const newState = !roleFound.isActive;
 
-    // Actualiza el rol con el nuevo estado
     await this.prismaService.roles.update({
       where: { id },
       data: { isActive: newState },
     });
 
-    // Devuelve un mensaje según el nuevo estado
     const message = newState
       ? `Role has been activated successfully`
       : `Role has been deactivated successfully`;
 
-    return { message };
+    return {
+      statusCode: HttpStatus.OK,
+      message,
+    };
   }
 
   async remove(id: number) {
@@ -124,6 +135,9 @@ export class RolesService {
       where: { id },
     });
 
-    return { message: `Role with id "${id}" deleted successfully` };
+    return {
+      statusCode: HttpStatus.NO_CONTENT,
+      message: `Role with id "${id}" deleted successfully`,
+    };
   }
 }

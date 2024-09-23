@@ -70,6 +70,13 @@ export class PersonalController {
     return this.personalService.inactivePersonal();
   }
 
+  @Get('email/:email')
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Get personal by email' })
+  findByEmail(@Param('email') email: string) {
+    return this.personalService.findByEmail(email);
+  }
+
   @Patch(':id')
   @HttpCode(200)
   @ApiOperation({ summary: 'Update personal' })
@@ -97,5 +104,11 @@ export class PersonalController {
   @ApiOperation({ summary: 'Delete personal' })
   remove(@Param('id') id: string) {
     return this.personalService.remove(+id);
+  }
+  @Get('password/:email')
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Get email and hashed password of personal' })
+  getLoginInfo(@Param('email') email: string) {
+    return this.personalService.getLoginInfo(email);
   }
 }

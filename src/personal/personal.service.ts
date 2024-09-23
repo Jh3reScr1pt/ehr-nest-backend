@@ -7,6 +7,7 @@ import { CreatePersonalDto } from './dto/create-personal.dto';
 import { UpdatePersonalDto } from './dto/update-personal.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
+import * as bcrypt from 'bcryptjs';
 
 @Injectable()
 export class PersonalService {
@@ -25,6 +26,14 @@ export class PersonalService {
     }
 
     try {
+      // Cifrar la contraseña antes de guardar el usuario
+      const salt = await bcrypt.genSalt(10);
+      const hashedPassword = await bcrypt.hash(
+        createPersonalDto.password,
+        salt,
+      );
+      // Reemplaza la contraseña en el DTO con la versión cifrada
+      createPersonalDto.password = hashedPassword;
       await this.prismaService.personal.create({ data: createPersonalDto });
       return { message: 'Personal created successfully' };
     } catch (error) {
@@ -50,6 +59,17 @@ export class PersonalService {
       throw new NotFoundException(`Personal with id -> ${id}, not found`);
     }
     return personalFound;
+  }
+  async findByEmail(email: string) {
+    const personal = await this.prismaService.personal.findUnique({
+      where: { email },
+    });
+
+    if (!personal) {
+      throw new NotFoundException(`Personal with email -> ${email}, not found`);
+    }
+
+    return personal;
   }
 
   async activePersonal() {
@@ -138,5 +158,20 @@ export class PersonalService {
     });
 
     return { message: `Personal with id "${id}" deleted successfully` };
+  }
+  async getLoginInfo(email: string) {
+    const personal = await this.prismaService.personal.findUnique({
+      where: { email },
+    });
+
+    if (!personal) {
+      throw new NotFoundException(`Personal with email -> ${email}, not found`);
+    }
+
+    // Retorna el email y la contraseña almacenada (hasheada)
+    return {
+      email: personal.email,
+      password: personal.password, // La contraseña en formato hash
+    };
   }
 }
