@@ -76,6 +76,13 @@ export class PersonalController {
   findByEmail(@Param('email') email: string) {
     return this.personalService.findByEmail(email);
   }
+  // Nuevo endpoint para buscar por CI
+  @Get('ci/:ci')
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Get personal by CI' })
+  findByCI(@Param('ci') ci: string) {
+    return this.personalService.findByCI(ci);
+  }
 
   @Patch(':id')
   @HttpCode(200)

@@ -42,8 +42,25 @@ export class Personal {
     type: String,
     description: 'Email of the person. This field must be unique.',
     example: 'john.doe@example.com',
+    required: true,
   })
   email: string;
+
+  @ApiProperty({
+    type: String,
+    description: 'Password of the person. This field must be unique.',
+    example: '54321',
+    required: true,
+  })
+  password: string;
+
+  @ApiProperty({
+    type: String,
+    description: 'CI of the person. This field must be unique.',
+    example: '12345678',
+    required: true,
+  })
+  ci: string;
 
   @ApiProperty({
     type: Number,

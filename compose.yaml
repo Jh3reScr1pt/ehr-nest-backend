@@ -9,8 +9,8 @@
 # https://github.com/docker/awesome-compose
 services:
   server:
-    container_name: backend-nest-v2           # Nombre del contenedor
-    image: jh3re404/backend-nest-ehr-server:v2 # Nombre y tag de la imagen
+    container_name: backend-nest-v3           # Nombre del contenedor
+    image: jh3re404/backend-nest-ehr-server:v3 # Nombre y tag de la imagen
     build:
       context: .
     environment:

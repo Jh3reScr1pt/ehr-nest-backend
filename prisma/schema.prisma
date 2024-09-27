@@ -7,7 +7,7 @@ generator client {
 
 datasource db {
   provider = "sqlite"
-  url      = env("DATABASE URL")
+  url      = env("DATABASE_URL")
 }
 
 model Personal {
@@ -16,9 +16,10 @@ model Personal {
   second_name      String?
   first_last_name  String
   second_last_name String
+  ci               String   @unique @default("12345678")
   phone_number     String?
   email            String   @unique
-  password         String   @default("12345")
+  password         String   @unique
   isActive         Boolean  @default(true)
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt

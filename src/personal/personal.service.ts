@@ -1,5 +1,7 @@
 import {
+  BadRequestException,
   ConflictException,
+  HttpStatus,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -12,45 +14,89 @@ import * as bcrypt from 'bcryptjs';
 @Injectable()
 export class PersonalService {
   constructor(private prismaService: PrismaService) {}
-  async create(createPersonalDto: CreatePersonalDto) {
-    // Verificar si el roleId existe
+
+  private validateCreatePersonalDto(createPersonalDto: CreatePersonalDto) {
+    const fields = [
+      { field: 'first_name', value: createPersonalDto.first_name },
+      { field: 'first_last_name', value: createPersonalDto.first_last_name },
+      { field: 'second_last_name', value: createPersonalDto.first_last_name },
+      { field: 'email', value: createPersonalDto.email },
+      { field: 'password', value: createPersonalDto.password },
+      { field: 'ci', value: createPersonalDto.ci },
+    ];
+
+    for (const { field, value } of fields) {
+      if (!value || value.trim() === '') {
+        throw new BadRequestException(`${field} cannot be empty`);
+      }
+    }
+  }
+  private async checkRoleExists(roleId: number) {
     const roleExists = await this.prismaService.roles.findUnique({
-      where: { id: createPersonalDto.roleId },
+      where: { id: roleId },
     });
 
-    // Si no existe, lanzar NotFoundException
     if (!roleExists) {
-      throw new NotFoundException(
-        `Role with id -> ${createPersonalDto.roleId} not found`,
+      throw new NotFoundException(`Role with id -> ${roleId} not found`);
+    }
+  }
+  private async checkIfEmailExists(email: string) {
+    const emailExists = await this.prismaService.personal.findUnique({
+      where: { email },
+    });
+
+    if (emailExists) {
+      throw new ConflictException(
+        `Personal with email -> ${email} already exists`,
       );
     }
+  }
+  private async checkIfCIExists(ci: string) {
+    const ciExists = await this.prismaService.personal.findUnique({
+      where: { ci },
+    });
+
+    if (ciExists) {
+      throw new ConflictException(`Personal with CI -> ${ci} already exists`);
+    }
+  }
+  private async hashPassword(password: string): Promise<string> {
+    const salt = await bcrypt.genSalt(10);
+    return bcrypt.hash(password, salt);
+  }
+  private handlePrismaError(error: any, email: string) {
+    if (error instanceof PrismaClientKnownRequestError) {
+      throw new ConflictException(
+        `Personal with email -> ${email} already exists`,
+      );
+    }
+    throw error;
+  }
+
+  async create(createPersonalDto: CreatePersonalDto) {
+    this.validateCreatePersonalDto(createPersonalDto);
+
+    await this.checkRoleExists(createPersonalDto.roleId);
+    await this.checkIfEmailExists(createPersonalDto.email);
+    await this.checkIfCIExists(createPersonalDto.ci);
 
     try {
-      // Cifrar la contraseña antes de guardar el usuario
-      const salt = await bcrypt.genSalt(10);
-      const hashedPassword = await bcrypt.hash(
+      createPersonalDto.password = await this.hashPassword(
         createPersonalDto.password,
-        salt,
       );
-      // Reemplaza la contraseña en el DTO con la versión cifrada
-      createPersonalDto.password = hashedPassword;
       await this.prismaService.personal.create({ data: createPersonalDto });
-      return { message: 'Personal created successfully' };
+      return {
+        statusCode: HttpStatus.CREATED,
+        message: 'Personal created successfully',
+      };
     } catch (error) {
-      if (error instanceof PrismaClientKnownRequestError) {
-        throw new ConflictException(
-          `Personal with email -> ${createPersonalDto.email} already exists`,
-        );
-      }
-      // Lanza otros errores no esperados
-      throw error;
+      this.handlePrismaError(error, createPersonalDto.email);
     }
   }
 
   findAll() {
     return this.prismaService.personal.findMany();
   }
-
   async findOne(id: number) {
     const personalFound = await this.prismaService.personal.findUnique({
       where: { id: id },
@@ -67,6 +113,18 @@ export class PersonalService {
 
     if (!personal) {
       throw new NotFoundException(`Personal with email -> ${email}, not found`);
+    }
+
+    return personal;
+  }
+  // Método para buscar por CI
+  async findByCI(ci: string) {
+    const personal = await this.prismaService.personal.findUnique({
+      where: { ci },
+    });
+
+    if (!personal) {
+      throw new NotFoundException(`Personal with CI -> ${ci}, not found`);
     }
 
     return personal;
@@ -97,19 +155,44 @@ export class PersonalService {
   }
 
   async update(id: number, updatePersonalDto: UpdatePersonalDto) {
+    const personalFound = await this.prismaService.personal.findUnique({
+      where: { id },
+    });
+
+    if (!personalFound) {
+      throw new NotFoundException(`Personal with id -> ${id}, not found`);
+    }
+    // Si hay una nueva contraseña
+    if (updatePersonalDto.password) {
+      // Compara la nueva contraseña con la actual
+      const isPasswordSame = await bcrypt.compare(
+        updatePersonalDto.password,
+        personalFound.password,
+      );
+
+      if (isPasswordSame) {
+        // Si la contraseña es la misma, puedes omitir la actualización de la contraseña
+        delete updatePersonalDto.password; // Elimina la propiedad password para no actualizarla
+      } else {
+        // Si es diferente, hashea la nueva contraseña
+        updatePersonalDto.password = await this.hashPassword(
+          updatePersonalDto.password,
+        );
+      }
+    }
     try {
       await this.prismaService.personal.update({
         where: { id },
         data: updatePersonalDto,
       });
-      return { message: 'Personal updated successfully' };
+      return {
+        statusCode: HttpStatus.OK,
+        message: 'Personal updated successfully',
+      };
     } catch (error) {
-      // Verifica el tipo de error lanzado por Prisma
       if (error.code === 'P2025') {
-        // Código de error específico para "Record to update not found"
         throw new NotFoundException(`Personal with id -> ${id}, not found`);
       }
-      // Lanza otros errores no esperados
       throw error;
     }
   }
@@ -123,21 +206,21 @@ export class PersonalService {
       throw new NotFoundException(`Personal with id "${id}" not found`);
     }
 
-    // Cambia el estado a su valor opuesto
     const newState = !personalFound.isActive;
 
-    // Actualiza el rol con el nuevo estado
     await this.prismaService.personal.update({
       where: { id },
       data: { isActive: newState },
     });
 
-    // Devuelve un mensaje según el nuevo estado
     const message = newState
       ? `Personal has been activated successfully`
       : `Personal has been deactivated successfully`;
 
-    return { message };
+    return {
+      statusCode: HttpStatus.OK,
+      message,
+    };
   }
 
   async remove(id: number) {
@@ -157,7 +240,10 @@ export class PersonalService {
       where: { id },
     });
 
-    return { message: `Personal with id "${id}" deleted successfully` };
+    return {
+      statusCode: HttpStatus.NO_CONTENT,
+      message: `Personal with id "${id}" deleted successfully`,
+    };
   }
   async getLoginInfo(email: string) {
     const personal = await this.prismaService.personal.findUnique({
@@ -167,11 +253,9 @@ export class PersonalService {
     if (!personal) {
       throw new NotFoundException(`Personal with email -> ${email}, not found`);
     }
-
-    // Retorna el email y la contraseña almacenada (hasheada)
     return {
       email: personal.email,
-      password: personal.password, // La contraseña en formato hash
+      password: personal.password,
     };
   }
 }
