@@ -10,16 +10,23 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+//TODO: Agregar reglas de integridad referencial
+//    No Action: No se permite eliminar/actualizar si hay relaciones (lanzará error).
+//    Restrict: Igual que No Action, pero de forma más estricta.
+//    Cascade: Elimina o actualiza los registros relacionados automáticamente.
+//    Set Null: Establece la clave foránea como null en los registros relacionados.
+//    Set Default: Establece la clave foránea en los registros relacionados a un valor por defecto.
+
 model Personal {
   id               Int      @id @default(autoincrement())
   first_name       String
   second_name      String?
   first_last_name  String
   second_last_name String
-  ci               String   @unique @default("12345678")
+  ci               String   @unique
   phone_number     String?
   email            String   @unique
-  password         String   @unique
+  password         String
   isActive         Boolean  @default(true)
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
@@ -27,7 +34,9 @@ model Personal {
   roleId Int
   role   Roles @relation(fields: [roleId], references: [id])
 
-  specialties DoctorSpecialties[]
+  specialties        DoctorSpecialties[]
+  Schedules          Schedules[]
+  MedicalAppointment MedicalAppointment[]
 }
 
 model Specialties {
@@ -49,7 +58,8 @@ model Roles {
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
-  personals Personal[]
+  personals        Personal[]
+  rolesPermissions RolesPermissions[] // Relación con RolePermission
 }
 
 model DoctorSpecialties {
@@ -62,4 +72,146 @@ model DoctorSpecialties {
   specialty Specialties @relation(fields: [specialtyId], references: [id])
 
   @@unique([personalId, specialtyId])
+}
+
+model Permissions {
+  id                     Int      @id @default(autoincrement())
+  permission_name        String   @unique
+  permission_description String?
+  isActive               Boolean  @default(true)
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  rolesPermissions RolesPermissions[] // Relación con RolePermission
+}
+
+model RolesPermissions {
+  roleId       Int
+  permissionId Int
+  assignedAt   DateTime @default(now())
+
+  role       Roles       @relation(fields: [roleId], references: [id])
+  permission Permissions @relation(fields: [permissionId], references: [id])
+
+  @@id([roleId, permissionId]) // Clave primaria compuesta
+}
+
+model Patients {
+  id               Int      @id @default(autoincrement())
+  first_name       String
+  second_name      String?
+  first_last_name  String
+  second_last_name String
+  ci               String   @unique
+  phone_number     String
+  address          String
+  age              Int
+  birth_date       DateTime
+  isActive         Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  MedicalAppointment MedicalAppointment[]
+
+  MedicalRecord MedicalRecord[]
+}
+
+model Schedules {
+  id         Int      @id @default(autoincrement())
+  personalId Int
+  day        String
+  start_time String
+  end_time   String
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  personal Personal @relation(fields: [personalId], references: [id])
+}
+
+//TODO: Agregar estado de que se cumplio la cita médica
+model MedicalAppointment {
+  id               Int      @id @default(autoincrement())
+  doctorId         Int
+  patientId        Int
+  date_appointment DateTime
+  start_time       String
+  end_time         String
+  isActive         Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  doctor  Personal @relation(fields: [doctorId], references: [id])
+  patient Patients @relation(fields: [patientId], references: [id])
+}
+
+//-----------------------------------------------------
+// TODO: Modulo de Historias Clínicas
+//-----------------------------------------------------
+// Historia clínica general de un paciente
+model MedicalRecord {
+  id                    Int      @id @default(autoincrement())
+  code                  String? // Código opcional para identificar la historia clínica
+  patientId             Int // Relación con el paciente
+  reason                String? // Motivo de consulta
+  symptomsInformation   String? // Información de los síntomas en formato "sintoma-severidad"
+  vitalSignsInformation String? // Información de los síntomas en formato "sintoma-severidad"
+  finalDiagnosis        String? // Diagnóstico final (texto libre ingresado por el médico)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  isActive              Boolean  @default(true) // Estado del registro (activo/inactivo)
+
+  patient              Patients    @relation(fields: [patientId], references: [id])
+  presumptiveDiagnoses Diagnosis[] // Relación con diagnósticos presuntivos
+  treatments           Treatment[] // Relación con tratamientos aplicados
+}
+
+// Diagnósticos presuntivos
+model Diagnosis {
+  id              Int      @id @default(autoincrement())
+  medicalRecordId Int // Relación con la historia clínica
+  diseaseGroupId  Int // Relación con el grupo de enfermedades
+  probability     Decimal // Probabilidad asociada al diagnóstico presuntivo
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  medicalRecord MedicalRecord @relation(fields: [medicalRecordId], references: [id])
+  diseaseGroup  DiseaseGroup  @relation(fields: [diseaseGroupId], references: [id])
+}
+
+// Grupos de enfermedades
+model DiseaseGroup {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique // Nombre único del grupo de enfermedades
+  description String? // Descripción opcional del grupo
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  diseases  Disease[] // Relación con enfermedades específicas
+  Diagnosis Diagnosis[]
+}
+
+// Enfermedades específicas con códigos CIE-10
+model Disease {
+  id             Int      @id @default(autoincrement())
+  diseaseGroupId Int?
+  codeCie        String   @unique // Código único CIE-10
+  name           String   @unique // Nombre único de la enfermedad
+  description    String? // Descripción opcional
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  diseaseGroup DiseaseGroup? @relation(fields: [diseaseGroupId], references: [id])
+}
+
+// Tratamientos aplicados
+model Treatment {
+  id              Int      @id @default(autoincrement())
+  medicalRecordId Int // Relación con la historia clínica
+  medication      String // Nombre del medicamento
+  notes           String? // Notas adicionales sobre el tratamiento
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  medicalRecord MedicalRecord @relation(fields: [medicalRecordId], references: [id])
 }

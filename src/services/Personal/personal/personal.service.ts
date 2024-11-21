@@ -19,7 +19,7 @@ export class PersonalService {
     const fields = [
       { field: 'first_name', value: createPersonalDto.first_name },
       { field: 'first_last_name', value: createPersonalDto.first_last_name },
-      { field: 'second_last_name', value: createPersonalDto.first_last_name },
+      { field: 'second_last_name', value: createPersonalDto.second_last_name },
       { field: 'email', value: createPersonalDto.email },
       { field: 'password', value: createPersonalDto.password },
       { field: 'ci', value: createPersonalDto.ci },
@@ -33,7 +33,7 @@ export class PersonalService {
   }
   private async checkRoleExists(roleId: number) {
     const roleExists = await this.prismaService.roles.findUnique({
-      where: { id: roleId },
+      where: { id: roleId, isActive: true },
     });
 
     if (!roleExists) {
@@ -127,6 +127,27 @@ export class PersonalService {
       throw new NotFoundException(`Personal with CI -> ${ci}, not found`);
     }
 
+    return personal;
+  }
+  // En personal.service.ts
+  async findRoleWithPermissions(userId: number) {
+    const personal = await this.prismaService.personal.findUnique({
+      where: { id: Number(userId) },
+      include: {
+        role: {
+          include: {
+            rolesPermissions: {
+              include: {
+                permission: true,
+              },
+            },
+          },
+        },
+      },
+    });
+    if (!personal) {
+      throw new NotFoundException(`Personal with Id -> ${userId}, not found`);
+    }
     return personal;
   }
 

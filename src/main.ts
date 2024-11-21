@@ -10,6 +10,16 @@ async function bootstrap() {
     .setTitle('EHR')
     .setDescription('The EHR API description')
     .setVersion('1.0')
+    // Soporte para autenticación
+    .addApiKey(
+      {
+        type: 'apiKey',
+        name: 'Authorization',
+        in: 'header',
+        description: 'Ingrese su token de autorización',
+      },
+      'Authorization', // Este es el nombre que se usa para referenciar en los decoradores
+    )
     .build();
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api', app, document);

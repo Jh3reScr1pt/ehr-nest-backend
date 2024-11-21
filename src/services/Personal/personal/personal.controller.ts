@@ -66,7 +66,7 @@ export class PersonalController {
   @Get('inactive')
   @HttpCode(200)
   @ApiOperation({ summary: 'Get all inactive personal' })
-  inactiveRoles() {
+  inactivePersonal() {
     return this.personalService.inactivePersonal();
   }
 
@@ -82,6 +82,12 @@ export class PersonalController {
   @ApiOperation({ summary: 'Get personal by CI' })
   findByCI(@Param('ci') ci: string) {
     return this.personalService.findByCI(ci);
+  }
+  @Get('roles_permissions/:id')
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Get role with permissions' })
+  findRoleWithPermissions(@Param('id') id: number) {
+    return this.personalService.findRoleWithPermissions(id);
   }
 
   @Patch(':id')
@@ -112,6 +118,7 @@ export class PersonalController {
   remove(@Param('id') id: string) {
     return this.personalService.remove(+id);
   }
+
   @Get('password/:email')
   @HttpCode(200)
   @ApiOperation({ summary: 'Get email and hashed password of personal' })
