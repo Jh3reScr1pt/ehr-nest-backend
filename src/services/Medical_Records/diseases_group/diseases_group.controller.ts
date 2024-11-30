@@ -47,6 +47,12 @@ export class DiseasesGroupController {
   findAll() {
     return this.diseasesGroupService.findAll();
   }
+  @Get('by_name/:name')
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Find disease group by name' })
+  findByName(@Param('name') name: string) {
+    return this.diseasesGroupService.findByName(name);
+  }
 
   @Patch(':id')
   @HttpCode(200)

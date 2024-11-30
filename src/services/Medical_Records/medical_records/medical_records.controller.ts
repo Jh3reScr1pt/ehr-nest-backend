@@ -68,6 +68,13 @@ export class MedicalRecordsController {
     return this.medicalRecordsService.inactiveMedicalRecords();
   }
 
+  @Get('patient/:id')
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Get medical record with a patient info' })
+  findMedicalRecordsByPatientId(@Param('id') id: number) {
+    return this.medicalRecordsService.findMedicalRecordsByPatientId(+id);
+  }
+
   @Get('medical_record_patient/:id')
   @HttpCode(200)
   @ApiOperation({ summary: 'Get medical record with patients info' })

@@ -49,6 +49,34 @@ export class DiseasesGroupService {
     }
   }
 
+  async findByName(name: string) {
+    if (!name || name.trim() === '') {
+      throw new BadRequestException('Disease group name cannot be empty');
+    }
+
+    try {
+      const diseaseGroup = await this.prismaService.diseaseGroup.findUnique({
+        where: { name: name.trim() },
+      });
+
+      if (!diseaseGroup) {
+        throw new NotFoundException(
+          `Disease group with name "${name}" not found`,
+        );
+      }
+
+      return {
+        id: diseaseGroup.id,
+        name: diseaseGroup.name,
+      };
+    } catch (error) {
+      console.error(error);
+      throw new InternalServerErrorException(
+        'An error occurred while searching for the disease group',
+      );
+    }
+  }
+
   async update(id: number, updateDiseasesGroupDto: UpdateDiseasesGroupDto) {
     this.validateDiseaseGroupDto(updateDiseasesGroupDto);
 

@@ -13,10 +13,10 @@ import { SchedulesModule } from './services/Personal/schedules/schedules.module'
 import { LoggerMiddleware } from './middleware/logger/logger.middleware';
 import { AuthMiddleware } from './middleware/auth/auth.middleware';
 import { MedicalRecordsModule } from './services/Medical_Records/medical_records/medical_records.module';
-import { DiagnosisModule } from './services/medical_records/diagnosis/diagnosis.module';
-import { DiseasesGroupModule } from './services/medical_records/diseases_group/diseases_group.module';
-import { DiseasesModule } from './services/medical_records/diseases/diseases.module';
-import { TreatmentsModule } from './services/medical_records/treatments/treatments.module';
+import { DiagnosisModule } from './services/Medical_Records/diagnosis/diagnosis.module';
+import { DiseasesGroupModule } from './services/Medical_Records/diseases_group/diseases_group.module';
+import { DiseasesModule } from '@services/Medical_Records/diseases/diseases.module';
+import { TreatmentsModule } from '@services/Medical_Records/treatments/treatments.module';
 
 @Module({
   imports: [

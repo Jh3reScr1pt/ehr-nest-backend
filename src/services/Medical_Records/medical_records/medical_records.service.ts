@@ -71,7 +71,7 @@ export class MedicalRecordsService {
     const code = await this.generateMedicalRecordCode();
 
     try {
-      await this.prismaService.medicalRecord.create({
+      const res = await this.prismaService.medicalRecord.create({
         data: {
           ...createMedicalRecordDto,
           code,
@@ -91,6 +91,7 @@ export class MedicalRecordsService {
       return {
         statusCode: HttpStatus.CREATED,
         message: 'Medical record created successfully',
+        data: res,
       };
     } catch (error) {
       this.handlePrismaError(error, createMedicalRecordDto.code);
@@ -125,6 +126,67 @@ export class MedicalRecordsService {
         : [],
     };
   }
+  async findMedicalRecordsByPatientId(patientId: number) {
+    // Verifica si el paciente existe y está activo
+    const patientExists = await this.prismaService.patients.findUnique({
+      where: { id: patientId, isActive: true },
+    });
+
+    if (!patientExists) {
+      throw new NotFoundException(`Patient with id -> ${patientId} not found`);
+    }
+
+    // Busca todos los registros médicos asociados al paciente
+    const medicalRecords = await this.prismaService.medicalRecord.findMany({
+      where: { patientId },
+      include: {
+        patient: true, // Incluye los detalles del paciente
+        treatments: true, // Incluye los tratamientos relacionados
+      },
+    });
+
+    if (!medicalRecords.length) {
+      throw new NotFoundException(
+        `No medical records found for patient with id -> ${patientId}`,
+      );
+    }
+
+    // Mapea los resultados para estructurar la respuesta
+    return medicalRecords.map((record) => ({
+      medicalRecordId: record.id,
+      code: record.code,
+      reason: record.reason,
+      finalDiagnosis: record.finalDiagnosis,
+      symptoms: record.symptomsInformation
+        ? record.symptomsInformation.split(',').map((s) => {
+            const [symptom, severity] = s.split('-');
+            return { symptom, severity };
+          })
+        : [],
+      vitalSigns: record.vitalSignsInformation
+        ? record.vitalSignsInformation.split(',').map((v) => {
+            const [sign, value] = v.split('-');
+            return { sign, value };
+          })
+        : [],
+      patient: {
+        id: record.patient.id,
+        fullName: `${record.patient.first_name} ${record.patient.second_name || ''} ${record.patient.first_last_name} ${record.patient.second_last_name}`,
+        ci: record.patient.ci,
+        phone_number: record.patient.phone_number,
+        address: record.patient.address,
+        age: record.patient.age,
+        birth_date: record.patient.birth_date,
+      },
+      treatments: record.treatments.map((treatment) => ({
+        id: treatment.id,
+        medication: treatment.medication,
+        notes: treatment.notes,
+      })),
+      createdAt: record.createdAt,
+      updatedAt: record.updatedAt,
+    }));
+  }
 
   async findAllActiveMedicalRecordsWithPatients() {
     const medicalRecords = await this.prismaService.medicalRecord.findMany({
@@ -134,6 +196,7 @@ export class MedicalRecordsService {
       },
       include: {
         patient: true,
+        presumptiveDiagnoses: true,
       },
     });
 
