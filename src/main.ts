@@ -18,7 +18,7 @@ async function bootstrap() {
         in: 'header',
         description: 'Ingrese su token de autorización',
       },
-      'Authorization', // Este es el nombre que se usa para referenciar en los decoradores
+      'Authorization',
     )
     .build();
   const document = SwaggerModule.createDocument(app, config);

@@ -129,4 +129,22 @@ export class TreatmentsService {
       );
     }
   }
+  async remove(id: number) {
+    const treatmentFound = await this.prismaService.treatment.findUnique({
+      where: { id },
+    });
+
+    if (!treatmentFound) {
+      throw new NotFoundException(`Treatment with id "${id}" not found`);
+    }
+
+    await this.prismaService.treatment.delete({
+      where: { id },
+    });
+
+    return {
+      statusCode: HttpStatus.NO_CONTENT,
+      message: `Treatment with id "${id}" deleted successfully`,
+    };
+  }
 }

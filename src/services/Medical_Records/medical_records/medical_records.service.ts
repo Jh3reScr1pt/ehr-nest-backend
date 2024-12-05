@@ -69,22 +69,17 @@ export class MedicalRecordsService {
     await this.checkPatientExists(createMedicalRecordDto.patientId);
 
     const code = await this.generateMedicalRecordCode();
+    console.log('Datos recibidos en el backend:', createMedicalRecordDto);
 
     try {
       const res = await this.prismaService.medicalRecord.create({
         data: {
           ...createMedicalRecordDto,
           code,
-          symptomsInformation: Array.isArray(
-            createMedicalRecordDto.symptomsInformation,
-          )
-            ? createMedicalRecordDto.symptomsInformation.join(',')
-            : undefined,
-          vitalSignsInformation: Array.isArray(
-            createMedicalRecordDto.vitalSignsInformation,
-          )
-            ? createMedicalRecordDto.vitalSignsInformation.join(',')
-            : undefined,
+          symptomsInformation:
+            createMedicalRecordDto.symptomsInformation.trim(),
+          vitalSignsInformation:
+            createMedicalRecordDto.vitalSignsInformation.trim(),
         },
       });
 
@@ -138,7 +133,10 @@ export class MedicalRecordsService {
 
     // Busca todos los registros médicos asociados al paciente
     const medicalRecords = await this.prismaService.medicalRecord.findMany({
-      where: { patientId },
+      orderBy: {
+        createdAt: 'desc', // Cambia 'createdAt' por el campo que deseas usar para ordenar
+      },
+      where: { patientId, isActive: true },
       include: {
         patient: true, // Incluye los detalles del paciente
         treatments: true, // Incluye los tratamientos relacionados
@@ -190,6 +188,9 @@ export class MedicalRecordsService {
 
   async findAllActiveMedicalRecordsWithPatients() {
     const medicalRecords = await this.prismaService.medicalRecord.findMany({
+      orderBy: {
+        createdAt: 'desc', // Cambia 'createdAt' por el campo que deseas usar para ordenar
+      },
       where: {
         isActive: true,
         patient: { isActive: true },
@@ -243,6 +244,15 @@ export class MedicalRecordsService {
       include: {
         patient: true, // Incluir los datos del paciente
         treatments: true, // Incluir tratamientos relacionados
+        presumptiveDiagnoses: {
+          include: {
+            diseaseGroup: {
+              include: {
+                diseases: true, // Incluir las enfermedades relacionadas con el grupo
+              },
+            },
+          },
+        },
       },
     });
 
@@ -283,6 +293,21 @@ export class MedicalRecordsService {
         medication: treatment.medication,
         notes: treatment.notes,
       })),
+      presumptiveDiagnosis: medicalRecord.presumptiveDiagnoses.map(
+        (diagnosis) => ({
+          id: diagnosis.diseaseGroup.id,
+          probability: diagnosis.probability,
+          diseaseGroup: diagnosis.diseaseGroup
+            ? {
+                name: diagnosis.diseaseGroup.name,
+                diseases: diagnosis.diseaseGroup.diseases.map((disease) => ({
+                  name: disease.name,
+                  codeCie: disease.codeCie,
+                })),
+              }
+            : null,
+        }),
+      ),
       createdAt: medicalRecord.createdAt,
       updatedAt: medicalRecord.updatedAt,
     };

@@ -31,7 +31,7 @@ export class MedicalRecord {
     example: 'Tos-Alta,Fatiga-Media',
     required: false,
   })
-  symptomsInformation?: string[];
+  symptomsInformation?: string;
 
   @ApiProperty({
     type: [String],
@@ -39,5 +39,5 @@ export class MedicalRecord {
     example: 'Temperature-37.5, HeartRate-80',
     required: false,
   })
-  vitalSignsInformation?: string[];
+  vitalSignsInformation?: string;
 }

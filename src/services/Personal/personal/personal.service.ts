@@ -10,10 +10,12 @@ import { UpdatePersonalDto } from './dto/update-personal.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import * as bcrypt from 'bcryptjs';
+import { Resend } from 'resend';
 
 @Injectable()
 export class PersonalService {
   constructor(private prismaService: PrismaService) {}
+  private resend = new Resend('re_RY7wGX1z_4jprVZNUdTFLtuJVZBXjTrZ1');
 
   private validateCreatePersonalDto(createPersonalDto: CreatePersonalDto) {
     const fields = [
@@ -64,6 +66,16 @@ export class PersonalService {
     const salt = await bcrypt.genSalt(10);
     return bcrypt.hash(password, salt);
   }
+  private generatePassword(
+    firstName: string,
+    firstLastName: string,
+    secondLastName: string,
+    ci: string,
+  ): string {
+    const initials =
+      `${firstName[0]}${firstLastName[0]}${secondLastName[0]}`.toUpperCase();
+    return `${initials}${ci}`;
+  }
   private handlePrismaError(error: any, email: string) {
     if (error instanceof PrismaClientKnownRequestError) {
       throw new ConflictException(
@@ -81,10 +93,36 @@ export class PersonalService {
     await this.checkIfCIExists(createPersonalDto.ci);
 
     try {
+      // Generar contraseña automáticamente
+      const generatedPassword = this.generatePassword(
+        createPersonalDto.first_name,
+        createPersonalDto.first_last_name,
+        createPersonalDto.second_last_name,
+        createPersonalDto.ci,
+      );
       createPersonalDto.password = await this.hashPassword(
         createPersonalDto.password,
       );
       await this.prismaService.personal.create({ data: createPersonalDto });
+      try {
+        const { data, error } = await this.resend.emails.send({
+          from: 'Acme <onboarding@resend.dev>',
+          to: ['jheremymollo.02@gmail.com'],
+          subject: 'Bienvenido al Sistema',
+          html: `<strong>Su contraseña es: ${generatedPassword}</strong>`,
+        });
+
+        if (error) {
+          console.error('Error enviando correo:', error);
+        } else {
+          console.log('Correo enviado con éxito:', data);
+        }
+      } catch (err) {
+        console.error('Error al enviar el correo:', err.message);
+        throw new Error(
+          'El usuario fue creado, pero no se pudo enviar el correo.',
+        );
+      }
       return {
         statusCode: HttpStatus.CREATED,
         message: 'Personal created successfully',
